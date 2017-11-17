@@ -1,5 +1,5 @@
 # Image Processing
-This repository includes digital image processing algorithms and techniques implementation in Python.
+This repository includes the implementation of digital image processing algorithms and techniques in Python.
 
 Canny Edge Detector Algorithm was implemented based on the following steps:
   1. Convert to Grayscale
