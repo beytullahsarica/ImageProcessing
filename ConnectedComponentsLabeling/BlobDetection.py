@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from enum import Enum
+from skimage import filters
 
 # constant variables
 SKIP_VALUE = 200
@@ -97,13 +98,16 @@ def getBinaryImage():
                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
 
+def convertToBinaryImage(img):
+    return img
+
+
 def computeConnectedComponents(img):
     rows = len(img)
     cols = len(img[0])
     visited = np.zeros(shape=(rows, cols))
     # We perform one - pass algorithm -> Check each pixel of the image
     currentLabel = 1;
-    count=0
     for i in range(0, rows):
         for j in range(0, cols):
             # If it is background skip it
@@ -148,7 +152,31 @@ def computeConnectedComponents(img):
                         points.append(Point(p.x, p.y + 1))
             # increase current label
             currentLabel += 1
+    return img
 
+
+def threshold(img):
+    rows = len(img)
+    cols = len(img[0])
+    t = filters.threshold_otsu(img)
+    for i in range(0, rows):
+        for j in range(0, cols):
+            if img[i][j] >= t:
+                img[i][j] = 1.0
+            else:
+                img[i][j] = 0.0
+
+    return img
+
+
+def performNormalization(img):
+    rows = len(img)
+    cols = len(img[0])
+    max = img.max()
+    for i in range(0, rows):
+        for j in range(0, cols):
+            if (img[i][j] > 0):
+                img[i][j] = 255 / img[i][j]
     return img
 
 
@@ -157,14 +185,22 @@ bird2 = loadImage("bird 2.jpg")
 bird3 = loadImage("bird 3.bmp")
 
 # convert grayscale
-# img = convertImageToGreyscale(bird1);
+img = convertImageToGreyscale(bird1);
 # smooting the image before segmentation
-# img = smoothing(img)
+img = smoothing(img)
 # get binary image from the smoothed image
-img = getBinaryImage()
+# img = getBinaryImage()
+img = threshold(img)
+print(img)
 img = computeConnectedComponents(img)
-img = img* (255/img.max())#perform normalization
+print("after labeling...")
+print(img)
+count = img.max()
 
+# perform normalization
+img = performNormalization(img)
+
+print("count: " + str(count))
 # show image
 plt.close('all')
 plt.imshow(img, cmap="gray")
