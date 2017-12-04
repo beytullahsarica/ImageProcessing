@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from enum import Enum
-from skimage import filters
 
 # constant variables
 SKIP_VALUE = 200
+MAX_GREY_VALUE = 256
 
 plt.close('all')
 
@@ -75,31 +75,48 @@ def smoothing(img):
     return iterate(img, getGaussianFilterForSmoothing())
 
 
-def getBinaryImage():
-    return np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
-                     [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
-                     [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
-
-
 def convertToBinaryImage(img):
     return img
+
+
+# this computes the automatic threshold value from the greyscale image intensity values
+def computeThreshold(img):
+    print("compute thresholding...")
+    histData = computeHistogram(img)
+    currentMaxValue, threshold, sum, sumF, sumB, wB, wF, varBetween, meanB, meanF = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    totalPixel = len(img) * len(img[0])
+    count = 0
+    while count < MAX_GREY_VALUE:
+        sum += count * histData[0][count]
+        count = count + 1
+
+    for i in range(0, MAX_GREY_VALUE):
+        wB += histData[0][i]
+        wF = totalPixel - wB
+        if wF == 0:
+            break
+        sumB += i * histData[0][i]
+        sumF = sum - sumB
+        meanB = sumB / wB
+        meanF = sumF / wF
+        between = wB * wF * (meanB - meanF) * (meanB - meanF)
+        if between > currentMaxValue:
+            currentMaxValue = between
+            threshold = i
+    print("calculated threshold value is " + str(threshold))
+    return threshold
+
+
+# calculate histogram of grayscale image
+def computeHistogram(img):
+    histData = []
+    rows = len(img)
+    cols = len(img[0])
+    for i in range(0, rows):
+        for j in range(0, cols):
+            intensity = img[i][j]
+            histData.append(intensity)
+    return np.histogram(histData, bins=MAX_GREY_VALUE)
 
 
 def computeConnectedComponents(img):
@@ -155,10 +172,11 @@ def computeConnectedComponents(img):
     return img
 
 
-def threshold(img):
+# applying threshold value to image in order to get binary image(0,1) - 0 background 1 foregground
+def applyThreshold(img):
     rows = len(img)
     cols = len(img[0])
-    t = filters.threshold_otsu(img)
+    t = computeThreshold(img)
     for i in range(0, rows):
         for j in range(0, cols):
             if img[i][j] >= t:
@@ -169,10 +187,10 @@ def threshold(img):
     return img
 
 
+# normaliza the labeled data
 def performNormalization(img):
     rows = len(img)
     cols = len(img[0])
-    max = img.max()
     for i in range(0, rows):
         for j in range(0, cols):
             if (img[i][j] > 0):
@@ -180,27 +198,24 @@ def performNormalization(img):
     return img
 
 
-bird1 = loadImage("bird 1.jpg")
-bird2 = loadImage("bird 2.jpg")
-bird3 = loadImage("bird 3.bmp")
+bird1 = loadImage("bird1.jpg")
+bird2 = loadImage("bird2.jpg")
+bird3 = loadImage("bird3.bmp")
 
 # convert grayscale
 img = convertImageToGreyscale(bird1);
-# smooting the image before segmentation
+# smoothing the image before segmentation
 img = smoothing(img)
-# get binary image from the smoothed image
-# img = getBinaryImage()
-img = threshold(img)
-print(img)
+# applying threshold to the image
+img = applyThreshold(img)
+# calculate connected components labeling
 img = computeConnectedComponents(img)
-print("after labeling...")
-print(img)
-count = img.max()
-
 # perform normalization
 img = performNormalization(img)
 
+count = int(img.max())
 print("count: " + str(count))
+
 # show image
 plt.close('all')
 plt.imshow(img, cmap="gray")
